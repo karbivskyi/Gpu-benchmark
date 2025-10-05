@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { apiClient } from '../services/api';
+import { setCurrentUser, clearCurrentUser, getCurrentUser } from '../utils/storage';
 
 interface WalletConnectionProps {
   onWalletConnect: (address: string) => void;
@@ -10,6 +12,7 @@ const WalletConnection: React.FC<WalletConnectionProps> = ({
   walletAddress
 }) => {
   const [isConnecting, setIsConnecting] = useState(false);
+  const [balance, setBalance] = useState<number | null>(null);
 
   const connectWallet = async () => {
     setIsConnecting(true);
@@ -19,6 +22,15 @@ const WalletConnection: React.FC<WalletConnectionProps> = ({
       
       // Generate a mock wallet address for demo
       const mockAddress = `${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      
+      // Authenticate with backend
+      const authResponse = await apiClient.authenticate(mockAddress);
+      setCurrentUser(authResponse.user);
+      
+      // Get wallet balance
+      const balanceResponse = await apiClient.getWalletBalance(authResponse.user.id);
+      setBalance(parseFloat(balanceResponse.virtualBalance));
+      
       onWalletConnect(mockAddress);
     } catch (error) {
       console.error('Failed to connect wallet:', error);
@@ -28,6 +40,8 @@ const WalletConnection: React.FC<WalletConnectionProps> = ({
   };
 
   const disconnectWallet = () => {
+    clearCurrentUser();
+    setBalance(null);
     onWalletConnect('');
   };
 
@@ -55,6 +69,11 @@ const WalletConnection: React.FC<WalletConnectionProps> = ({
           <div className="wallet-info">
             <p><strong>Connected Wallet:</strong></p>
             <p className="wallet-address">{walletAddress}</p>
+            {balance !== null && (
+              <div className="balance-info">
+                <p><strong>BMT Balance:</strong> {balance.toFixed(2)} BMT</p>
+              </div>
+            )}
           </div>
           <button 
             className="wallet-button"
