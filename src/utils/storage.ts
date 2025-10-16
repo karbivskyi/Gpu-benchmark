@@ -1,103 +1,38 @@
 import { BenchmarkResult } from '../types';
-import { apiClient, BenchmarkSubmission, User } from '../services/api';
 
 const STORAGE_KEY = 'gpu-mining-results';
-const USER_KEY = 'current-user';
 
 export const saveResult = async (result: BenchmarkResult): Promise<void> => {
   try {
-    // Get current user from localStorage
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
-      throw new Error('User not authenticated');
-    }
-
-    // Submit to backend API
-    const submission: BenchmarkSubmission = {
-      userId: currentUser.id,
-      duration: result.duration,
-      hashRate: result.hashRate,
-      difficulty: result.difficulty,
-      algorithm: result.algorithm,
-      score: result.score,
-      gpuInfo: result.gpuInfo
-    };
-
-    const response = await apiClient.submitBenchmark(submission);
-    
-    // Also save locally as backup
     const existingResults = getStoredResults();
     const updatedResults = [...existingResults, result];
+    
+    // Keep only the last 100 results to prevent storage overflow
     const limitedResults = updatedResults.slice(-100);
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(limitedResults));
-
-    console.log('Benchmark result saved:', response);
   } catch (error) {
     console.error('Failed to save result:', error);
-    
-    // Fallback to local storage only
-    const existingResults = getStoredResults();
-    const updatedResults = [...existingResults, result];
-    const limitedResults = updatedResults.slice(-100);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(limitedResults));
-    
-    throw new Error('Failed to save benchmark result to server, saved locally');
+    throw new Error('Failed to save benchmark result');
   }
 };
 
 export const getLeaderboard = async (): Promise<BenchmarkResult[]> => {
   try {
-    // Try to fetch from API first
-    const response = await apiClient.getBenchmarkLeaderboard();
-    return response.leaderboard.map((entry: any) => ({
-      id: entry.id,
-      walletAddress: entry.walletAddress,
-      timestamp: new Date(entry.timestamp).getTime(),
-      duration: parseInt(entry.duration) || 0,
-      hashRate: parseFloat(entry.hashRate) || 0,
-      difficulty: entry.difficulty || 'medium',
-      algorithm: entry.algorithm || 'sha256',
-      score: parseFloat(entry.score) || 0,
-      tokensEarned: parseFloat(entry.tokensEarned) || 0,
-      gpuInfo: entry.gpuInfo || 'Unknown GPU'
-    }));
-  } catch (error) {
-    console.error('Failed to load leaderboard from API:', error);
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Fallback to local storage
     const results = getStoredResults();
+    
+    // Add some mock data if no results exist
     if (results.length === 0) {
       return getMockLeaderboard();
     }
+    
     return results;
-  }
-};
-
-// User management functions
-export const getCurrentUser = (): User | null => {
-  try {
-    const stored = localStorage.getItem(USER_KEY);
-    return stored ? JSON.parse(stored) : null;
   } catch (error) {
-    console.error('Failed to get current user:', error);
-    return null;
-  }
-};
-
-export const setCurrentUser = (user: User): void => {
-  try {
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-  } catch (error) {
-    console.error('Failed to set current user:', error);
-  }
-};
-
-export const clearCurrentUser = (): void => {
-  try {
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem('auth_token');
-  } catch (error) {
-    console.error('Failed to clear current user:', error);
+    console.error('Failed to load leaderboard:', error);
+    return getMockLeaderboard();
   }
 };
 
